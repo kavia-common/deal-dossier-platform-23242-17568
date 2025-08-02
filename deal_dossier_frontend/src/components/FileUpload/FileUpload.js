@@ -1,6 +1,8 @@
 import React, { useState, useCallback } from 'react'
-import { Upload, X, FileText, File, Music, CheckCircle, AlertCircle } from 'lucide-react'
+import { Upload, X, FileText, File, Music, CheckCircle, AlertCircle, Eye, Zap } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import FileProcessingService from '../../services/fileProcessingService'
+import InsightsDashboard from '../DataVisualization/InsightsDashboard'
 
 // PUBLIC_INTERFACE
 const FileUpload = ({ projectId, onUploadComplete }) => {
@@ -13,7 +15,10 @@ const FileUpload = ({ projectId, onUploadComplete }) => {
    */
   const [files, setFiles] = useState([])
   const [uploading, setUploading] = useState(false)
+  const [processing, setProcessing] = useState(false)
   const [dragOver, setDragOver] = useState(false)
+  const [showInsights, setShowInsights] = useState(false)
+  const [processedFiles, setProcessedFiles] = useState([])
 
   const acceptedTypes = {
     'application/pdf': { icon: FileText, label: 'PDF' },
@@ -84,6 +89,7 @@ const FileUpload = ({ projectId, onUploadComplete }) => {
     if (files.length === 0) return
     
     setUploading(true)
+    const uploadedFiles = []
     
     for (const fileObj of files) {
       try {
@@ -108,7 +114,7 @@ const FileUpload = ({ projectId, onUploadComplete }) => {
         if (uploadError) throw uploadError
 
         // Save file metadata to database
-        const { error: dbError } = await supabase
+        const { data: fileData, error: dbError } = await supabase
           .from('files')
           .insert({
             project_id: projectId,
@@ -116,16 +122,20 @@ const FileUpload = ({ projectId, onUploadComplete }) => {
             type: fileObj.type,
             size: fileObj.size,
             file_url: uploadData.path,
-            upload_status: 'completed',
+            upload_status: 'processing',
             processing_progress: 0
           })
+          .select()
+          .single()
 
         if (dbError) throw dbError
 
-        // Update status to completed
+        // Update status to processing
         setFiles(prev => prev.map(f => 
-          f.id === fileObj.id ? { ...f, status: 'completed', progress: 100 } : f
+          f.id === fileObj.id ? { ...f, status: 'processing', progress: 100, dbId: fileData.id } : f
         ))
+
+        uploadedFiles.push({ ...fileObj, dbId: fileData.id, file: fileObj.file })
 
       } catch (error) {
         console.error('Upload error:', error)
@@ -136,8 +146,68 @@ const FileUpload = ({ projectId, onUploadComplete }) => {
     }
 
     setUploading(false)
+    
+    // Start processing uploaded files
+    if (uploadedFiles.length > 0) {
+      await processFiles(uploadedFiles)
+    }
+
     if (onUploadComplete) {
       onUploadComplete()
+    }
+  }
+
+  const processFiles = async (uploadedFiles) => {
+    setProcessing(true)
+    const processed = []
+
+    for (const fileObj of uploadedFiles) {
+      try {
+        // Update status to processing
+        setFiles(prev => prev.map(f => 
+          f.id === fileObj.id ? { ...f, status: 'processing', statusText: 'Analyzing content...' } : f
+        ))
+
+        // Process the file
+        const insights = await FileProcessingService.processFile(fileObj.file, fileObj.dbId)
+        
+        // Update status to completed with insights
+        setFiles(prev => prev.map(f => 
+          f.id === fileObj.id ? { 
+            ...f, 
+            status: 'completed', 
+            statusText: 'Processing complete',
+            insights: insights 
+          } : f
+        ))
+
+        processed.push({
+          id: fileObj.dbId,
+          name: fileObj.name,
+          type: fileObj.type,
+          size: fileObj.size,
+          insights: insights,
+          upload_status: 'completed'
+        })
+
+      } catch (error) {
+        console.error('Processing error:', error)
+        setFiles(prev => prev.map(f => 
+          f.id === fileObj.id ? { 
+            ...f, 
+            status: 'error', 
+            error: 'Processing failed: ' + error.message 
+          } : f
+        ))
+      }
+    }
+
+    setProcessedFiles(prev => [...prev, ...processed])
+    setProcessing(false)
+    
+    // Automatically show insights if files were processed successfully
+    if (processed.length > 0) {
+      setShowInsights(true)
     }
   }
 
@@ -154,6 +224,8 @@ const FileUpload = ({ projectId, onUploadComplete }) => {
     switch (status) {
       case 'completed':
         return <CheckCircle size={16} className="text-success" />
+      case 'processing':
+        return <Zap size={16} className="text-warning" />
       case 'error':
         return <AlertCircle size={16} className="text-error" />
       default:
@@ -175,6 +247,8 @@ const FileUpload = ({ projectId, onUploadComplete }) => {
           <h3 className="upload-title">Drop files here or click to browse</h3>
           <p className="upload-description">
             Supports PDF, DOCX, XLS, CSV, JSON, MP3, WAV, M4A files up to 100MB
+            <br />
+            <strong>✨ Automatic parsing, analysis, and visualization included!</strong>
           </p>
           <input
             type="file"
@@ -207,8 +281,17 @@ const FileUpload = ({ projectId, onUploadComplete }) => {
                 onClick={uploadFiles}
                 disabled={uploading || files.length === 0}
               >
-                {uploading ? 'Uploading...' : 'Upload Files'}
+                {uploading ? 'Uploading...' : processing ? 'Processing...' : 'Upload & Process Files'}
               </button>
+              {processedFiles.length > 0 && (
+                <button 
+                  className="btn btn-primary btn-sm"
+                  onClick={() => setShowInsights(!showInsights)}
+                >
+                  <Eye size={14} />
+                  {showInsights ? 'Hide' : 'View'} Insights
+                </button>
+              )}
             </div>
           </div>
 
@@ -240,17 +323,29 @@ const FileUpload = ({ projectId, onUploadComplete }) => {
                     </div>
                   )}
                   
+                  {fileObj.status === 'processing' && (
+                    <div className="processing-status">
+                      <div className="processing-spinner" />
+                      <span className="processing-text">
+                        {fileObj.statusText || 'Processing...'}
+                      </span>
+                    </div>  
+                  )}
+                  
                   {(fileObj.status === 'completed' || fileObj.status === 'error') && (
                     <div className="status-icon">
                       {getStatusIcon(fileObj.status)}
+                      {fileObj.status === 'completed' && fileObj.insights && (
+                        <span className="insights-indicator">✨ Analyzed</span>
+                      )}
                     </div>
                   )}
 
-                  {fileObj.status !== 'uploading' && (
+                  {fileObj.status !== 'uploading' && fileObj.status !== 'processing' && (
                     <button
                       className="remove-file"
                       onClick={() => removeFile(fileObj.id)}
-                      disabled={uploading}
+                      disabled={uploading || processing}
                     >
                       <X size={16} />
                     </button>
@@ -265,6 +360,22 @@ const FileUpload = ({ projectId, onUploadComplete }) => {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Insights Dashboard */}
+      {showInsights && processedFiles.length > 0 && (
+        <div className="insights-section">
+          <div className="insights-header">
+            <h3 className="insights-title">📊 File Analysis & Insights</h3>
+            <p className="insights-description">
+              Automatically extracted key information, metrics, and visualizations from your uploaded files
+            </p>
+          </div>
+          <InsightsDashboard 
+            projectId={projectId}
+            files={processedFiles}
+          />
         </div>
       )}
 
@@ -442,6 +553,63 @@ const FileUpload = ({ projectId, onUploadComplete }) => {
         .file-error {
           grid-column: 1 / -1;
           margin-top: 0.5rem;
+        }
+        
+        .processing-status {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+        }
+        
+        .processing-spinner {
+          width: 16px;
+          height: 16px;
+          border: 2px solid var(--border);
+          border-top: 2px solid var(--warning);
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+        }
+        
+        .processing-text {
+          font-size: 0.75rem;
+          color: var(--text-secondary);
+        }
+        
+        .insights-indicator {
+          font-size: 0.75rem;
+          color: var(--accent);
+          margin-left: 0.5rem;
+        }
+        
+        .insights-section {
+          margin-top: 2rem;
+          background-color: var(--bg-primary);
+          border: 1px solid var(--border);
+          border-radius: var(--radius-lg);
+          overflow: hidden;
+        }
+        
+        .insights-header {
+          padding: 1.5rem;
+          background-color: var(--bg-secondary);
+          border-bottom: 1px solid var(--border);
+        }
+        
+        .insights-title {
+          font-size: 1.25rem;
+          font-weight: 600;
+          color: var(--text-primary);
+          margin-bottom: 0.5rem;
+        }
+        
+        .insights-description {
+          color: var(--text-secondary);
+          margin: 0;
+        }
+        
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
         }
       `}</style>
     </div>

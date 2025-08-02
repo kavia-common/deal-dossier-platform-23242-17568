@@ -94,7 +94,11 @@ const Upload = () => {
       <div className="page-header">
         <div>
           <h1 className="text-xl font-bold">Upload Files</h1>
-          <p className="text-secondary">Upload and manage project documents and media files</p>
+          <p className="text-secondary">
+            Upload and manage project documents and media files
+            <br />
+            <span className="feature-highlight">✨ Automatic AI-powered analysis and insights included!</span>
+          </p>
         </div>
       </div>
 
@@ -198,6 +202,11 @@ const Upload = () => {
         
         .page-header {
           margin-bottom: 2rem;
+        }
+        
+        .feature-highlight {
+          color: var(--accent);
+          font-weight: 500;
         }
         
         .project-selection {

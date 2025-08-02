@@ -7,8 +7,11 @@ import {
   AlertCircle,
   CheckCircle2,
   Clock,
-  Users
+  Users,
+  Zap,
+  Eye
 } from 'lucide-react'
+import ProjectAnalysisDashboard from '../components/Analysis/ProjectAnalysisDashboard'
 
 // PUBLIC_INTERFACE
 const Dashboard = () => {
@@ -20,10 +23,14 @@ const Dashboard = () => {
     totalProjects: 0,
     filesProcessed: 0,
     reportsGenerated: 0,
-    pendingTasks: 0
+    pendingTasks: 0,
+    insightsGenerated: 0,
+    processingAccuracy: 0
   })
   const [recentActivity, setRecentActivity] = useState([])
   const [loading, setLoading] = useState(true)
+  const [showAnalysis, setShowAnalysis] = useState(false)
+  const [currentProject, setCurrentProject] = useState('project-1')
 
   useEffect(() => {
     loadDashboardData()
@@ -36,42 +43,65 @@ const Dashboard = () => {
         totalProjects: 12,
         filesProcessed: 248,
         reportsGenerated: 36,
-        pendingTasks: 8
+        pendingTasks: 8,
+        insightsGenerated: 156,
+        processingAccuracy: 94
       })
 
       // Load recent activity (mock data for now)
       setRecentActivity([
         {
           id: 1,
-          type: 'file_uploaded',
-          title: 'Financial_Statements_2023.pdf uploaded',
+          type: 'file_processed',
+          title: 'Financial_Statements_2023.pdf processed with AI insights',
           project: 'TechCorp Acquisition',
-          timestamp: '2 hours ago',
-          status: 'completed'
+          timestamp: '1 hour ago',
+          status: 'completed',
+          details: 'Extracted 15 key metrics, 94% confidence'
         },
         {
           id: 2,
-          type: 'report_generated',
-          title: 'Executive Summary generated',
-          project: 'RetailCo Analysis',
-          timestamp: '4 hours ago',
-          status: 'completed'
+          type: 'insight_generated',
+          title: 'Revenue growth trend identified',
+          project: 'TechCorp Acquisition',
+          timestamp: '2 hours ago',
+          status: 'completed',
+          details: '15% YoY growth acceleration detected'
         },
         {
           id: 3,
-          type: 'task_assigned',
-          title: 'Review market analysis section',
-          project: 'TechCorp Acquisition',
-          timestamp: '6 hours ago',
-          status: 'pending'
+          type: 'file_uploaded',
+          title: 'Management_Interview.mp3 uploaded and transcribed',
+          project: 'RetailCo Analysis',
+          timestamp: '3 hours ago',
+          status: 'completed',
+          details: '45 min interview, 3 speakers identified'
         },
         {
           id: 4,
-          type: 'comment_added',
-          title: 'New comment on revenue projections',
+          type: 'report_generated',
+          title: 'Executive Summary auto-generated',
+          project: 'RetailCo Analysis',
+          timestamp: '4 hours ago',
+          status: 'completed',
+          details: 'Based on 8 processed documents'
+        },
+        {
+          id: 5,
+          type: 'risk_identified',
+          title: 'Customer concentration risk flagged',
           project: 'StartupX Due Diligence',
-          timestamp: '1 day ago',
-          status: 'info'
+          timestamp: '6 hours ago',
+          status: 'warning',
+          details: 'Top 3 customers = 60% revenue'
+        },
+        {
+          id: 6,
+          type: 'task_assigned',
+          title: 'Review market analysis section',
+          project: 'TechCorp Acquisition',
+          timestamp: '8 hours ago',
+          status: 'pending'
         }
       ])
 
@@ -105,6 +135,20 @@ const Dashboard = () => {
       change: '+5 this week'
     },
     {
+      title: 'AI Insights',
+      value: stats.insightsGenerated,
+      icon: Zap,
+      color: 'accent',
+      change: '+28 this week'
+    },
+    {
+      title: 'Processing Accuracy',
+      value: `${stats.processingAccuracy}%`,
+      icon: CheckCircle2,
+      color: 'success',
+      change: '+2% this month'
+    },
+    {
       title: 'Pending Tasks',
       value: stats.pendingTasks,
       icon: Clock,
@@ -117,8 +161,14 @@ const Dashboard = () => {
     switch (type) {
       case 'file_uploaded':
         return <Upload size={16} />
+      case 'file_processed':
+        return <Zap size={16} />
+      case 'insight_generated':
+        return <TrendingUp size={16} />
       case 'report_generated':
         return <FileText size={16} />
+      case 'risk_identified':
+        return <AlertCircle size={16} />
       case 'task_assigned':
         return <Clock size={16} />
       case 'comment_added':
@@ -134,6 +184,8 @@ const Dashboard = () => {
         return <CheckCircle2 size={14} className="text-success" />
       case 'pending':
         return <Clock size={14} className="text-warning" />
+      case 'warning':
+        return <AlertCircle size={14} className="text-warning" />
       case 'error':
         return <AlertCircle size={14} className="text-error" />
       default:
@@ -159,6 +211,13 @@ const Dashboard = () => {
           <p className="text-secondary">Welcome back! Here's what's happening with your deals.</p>
         </div>
         <div className="dashboard-actions">
+          <button 
+            className={`btn ${showAnalysis ? 'btn-accent' : 'btn-secondary'}`}
+            onClick={() => setShowAnalysis(!showAnalysis)}
+          >
+            <Eye size={16} />
+            {showAnalysis ? 'Show Overview' : 'AI Analysis'}
+          </button>
           <button className="btn btn-primary">
             <Upload size={16} />
             Upload Files
@@ -170,29 +229,31 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="stats-grid">
-        {statCards.map((stat) => (
-          <div key={stat.title} className="stat-card">
-            <div className="stat-card-header">
-              <div className={`stat-icon stat-icon-${stat.color}`}>
-                <stat.icon size={20} />
+      {!showAnalysis ? (
+        <>
+          {/* Stats Cards */}
+          <div className="stats-grid">
+            {statCards.map((stat) => (
+              <div key={stat.title} className="stat-card">
+                <div className="stat-card-header">
+                  <div className={`stat-icon stat-icon-${stat.color}`}>
+                    <stat.icon size={20} />
+                  </div>
+                  <div className="stat-change">
+                    <TrendingUp size={12} />
+                    {stat.change}
+                  </div>
+                </div>
+                <div className="stat-content">
+                  <h3 className="stat-value">{stat.value}</h3>
+                  <p className="stat-title">{stat.title}</p>
+                </div>
               </div>
-              <div className="stat-change">
-                <TrendingUp size={12} />
-                {stat.change}
-              </div>
-            </div>
-            <div className="stat-content">
-              <h3 className="stat-value">{stat.value}</h3>
-              <p className="stat-title">{stat.title}</p>
-            </div>
+            ))}
           </div>
-        ))}
-      </div>
 
-      {/* Content Grid */}
-      <div className="content-grid">
+          {/* Content Grid */}
+          <div className="content-grid">
         {/* Recent Activity */}
         <div className="dashboard-section">
           <div className="section-header">
@@ -216,6 +277,11 @@ const Dashboard = () => {
                       {getStatusIcon(activity.status)}
                     </div>
                   </div>
+                  {activity.details && (
+                    <div className="activity-details">
+                      {activity.details}
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
@@ -246,7 +312,12 @@ const Dashboard = () => {
             </button>
           </div>
         </div>
-      </div>
+        </>
+      ) : (
+        <div className="analysis-view">
+          <ProjectAnalysisDashboard projectId={currentProject} />
+        </div>
+      )}
 
       <style jsx>{`
         .dashboard {
@@ -324,6 +395,7 @@ const Dashboard = () => {
         .stat-icon-success { background-color: var(--success); }
         .stat-icon-info { background-color: var(--info); }
         .stat-icon-warning { background-color: var(--warning); }
+        .stat-icon-accent { background-color: var(--accent); }
         
         .stat-change {
           display: flex;
@@ -431,6 +503,17 @@ const Dashboard = () => {
         .activity-project {
           font-size: 0.75rem;
           color: var(--text-secondary);
+        }
+        
+        .activity-details {
+          font-size: 0.75rem;
+          color: var(--text-muted);
+          margin-top: 0.25rem;
+          font-style: italic;
+        }
+        
+        .analysis-view {
+          margin-top: 1rem;
         }
         
         .quick-actions {

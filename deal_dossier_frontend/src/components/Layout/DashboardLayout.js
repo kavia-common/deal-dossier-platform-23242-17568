@@ -96,7 +96,7 @@ const DashboardLayout = ({ children }) => {
 
           {/* Evidence Panel */}
           <div className={`evidence-panel ${!evidencePanelOpen ? 'collapsed' : ''}`}>
-            <EvidencePanel />
+            <EvidencePanel projectId="project-1" />
           </div>
         </div>
       </div>
