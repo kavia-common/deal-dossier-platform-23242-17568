@@ -43,6 +43,7 @@ export const AuthProvider = ({ children }) => {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        console.log('Auth state change:', event, session?.user?.email)
         setSession(session)
         setUser(session?.user ?? null)
         setLoading(false)
@@ -51,6 +52,10 @@ export const AuthProvider = ({ children }) => {
         if (event === 'SIGNED_OUT') {
           // Clear any local storage or cached data
           localStorage.removeItem('supabase-auth-token')
+        }
+        
+        if (event === 'SIGNED_IN') {
+          console.log('User signed in successfully:', session?.user?.email)
         }
         
         if (event === 'TOKEN_REFRESHED') {

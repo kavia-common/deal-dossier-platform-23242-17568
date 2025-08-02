@@ -13,19 +13,66 @@ const AuthCallback = () => {
   useEffect(() => {
     const handleAuthCallback = async () => {
       try {
-        const { data, error } = await supabase.auth.getSession()
+        // First, check if this is an auth callback with URL parameters
+        const urlParams = new URLSearchParams(window.location.search)
+        const accessToken = urlParams.get('access_token')
+        const authCode = urlParams.get('code')
+        const error = urlParams.get('error')
+        const errorDescription = urlParams.get('error_description')
 
+        // Handle error from URL parameters
         if (error) {
-          console.error('Auth callback error:', error)
+          console.error('Auth callback URL error:', error, errorDescription)
+          navigate('/auth/error')
+          return
+        }
+
+        // If we have auth parameters, exchange them for a session
+        if (accessToken || authCode) {
+          console.log('Processing auth callback with parameters')
+          
+          // For email confirmation or OAuth, exchange the code for session
+          const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(window.location.search)
+          
+          if (exchangeError) {
+            console.error('Auth code exchange error:', exchangeError)
+            // Try getting session as fallback
+            const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+            
+            if (sessionError || !sessionData.session) {
+              navigate('/auth/error')
+              return
+            }
+            
+            // Session exists, redirect to dashboard
+            console.log('Successfully authenticated via fallback session check')
+            navigate('/')
+            return
+          }
+          
+          if (data.session) {
+            console.log('Successfully authenticated via code exchange')
+            navigate('/')
+            return
+          }
+        }
+
+        // Fallback: just check for existing session
+        const { data, error: sessionError } = await supabase.auth.getSession()
+
+        if (sessionError) {
+          console.error('Auth callback session error:', sessionError)
           navigate('/auth/error')
           return
         }
 
         if (data.session) {
           // Successful authentication - redirect to dashboard
+          console.log('Successfully authenticated via session check')
           navigate('/')
         } else {
           // No session found - redirect to login
+          console.log('No session found, redirecting to auth')
           navigate('/auth')
         }
       } catch (error) {
