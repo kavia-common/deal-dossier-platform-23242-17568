@@ -42,7 +42,7 @@ const FileUpload = ({ projectId, onUploadComplete }) => {
     setDragOver(false)
     const droppedFiles = Array.from(e.dataTransfer.files)
     addFiles(droppedFiles)
-  }, [])
+  }, [addFiles])
 
   const handleFileSelect = (e) => {
     const selectedFiles = Array.from(e.target.files)

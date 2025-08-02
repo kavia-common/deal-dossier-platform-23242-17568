@@ -9,7 +9,6 @@ import {
   Clock,
   Users
 } from 'lucide-react'
-import { supabase } from '../lib/supabase'
 
 // PUBLIC_INTERFACE
 const Dashboard = () => {

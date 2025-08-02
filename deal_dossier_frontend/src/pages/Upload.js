@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react'
-import { FolderOpen, Upload as UploadIcon, File, Trash2 } from 'lucide-react'
+import { FolderOpen, File, Trash2 } from 'lucide-react'
 import FileUpload from '../components/FileUpload/FileUpload'
-import { supabase } from '../lib/supabase'
 
 // PUBLIC_INTERFACE
 const Upload = () => {

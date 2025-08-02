@@ -1,5 +1,13 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
-import { supabase } from '../lib/supabase'
+import { 
+  supabase, 
+  signUp as supabaseSignUp, 
+  signIn as supabaseSignIn, 
+  signOut as supabaseSignOut,
+  resetPassword,
+  signInWithMagicLink,
+  signInWithOAuth
+} from '../lib/supabase'
 
 const AuthContext = createContext({})
 
@@ -22,10 +30,12 @@ export const AuthProvider = ({ children }) => {
    */
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [session, setSession] = useState(null)
 
   useEffect(() => {
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session)
       setUser(session?.user ?? null)
       setLoading(false)
     })
@@ -33,8 +43,19 @@ export const AuthProvider = ({ children }) => {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        setSession(session)
         setUser(session?.user ?? null)
         setLoading(false)
+        
+        // Handle specific auth events
+        if (event === 'SIGNED_OUT') {
+          // Clear any local storage or cached data
+          localStorage.removeItem('supabase-auth-token')
+        }
+        
+        if (event === 'TOKEN_REFRESHED') {
+          console.log('Auth token refreshed')
+        }
       }
     )
 
@@ -43,16 +64,14 @@ export const AuthProvider = ({ children }) => {
 
   const value = {
     user,
+    session,
     loading,
-    signUp: (email, password) => supabase.auth.signUp({ 
-      email, 
-      password,
-      options: {
-        emailRedirectTo: process.env.REACT_APP_SITE_URL || 'http://localhost:3000'
-      }
-    }),
-    signIn: (email, password) => supabase.auth.signInWithPassword({ email, password }),
-    signOut: () => supabase.auth.signOut(),
+    signUp: supabaseSignUp,
+    signIn: supabaseSignIn,
+    signOut: supabaseSignOut,
+    resetPassword,
+    signInWithMagicLink,
+    signInWithOAuth,
   }
 
   return (

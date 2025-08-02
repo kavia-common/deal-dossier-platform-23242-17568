@@ -2,6 +2,8 @@ import React from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import AuthForm from './components/Auth/AuthForm'
+import AuthCallback from './components/Auth/AuthCallback'
+import AuthError from './components/Auth/AuthError'
 import DashboardLayout from './components/Layout/DashboardLayout'
 import Dashboard from './pages/Dashboard'
 import Projects from './pages/Projects'
@@ -43,24 +45,34 @@ const AppRoutes = () => {
     )
   }
 
-  if (!user) {
-    return <AuthForm />
-  }
-
   return (
-    <DashboardLayout>
-      <Routes>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/projects" element={<Projects />} />
-        <Route path="/upload" element={<Upload />} />
-        <Route path="/reports" element={<Reports />} />
-        <Route path="/analytics" element={<div>Analytics Page (Coming Soon)</div>} />
-        <Route path="/comments" element={<div>Comments Page (Coming Soon)</div>} />
-        <Route path="/tasks" element={<div>Tasks Page (Coming Soon)</div>} />
-        <Route path="/admin/*" element={<div>Admin Section (Coming Soon)</div>} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </DashboardLayout>
+    <Routes>
+      {/* Auth routes - accessible when not logged in */}
+      <Route path="/auth" element={!user ? <AuthForm /> : <Navigate to="/" replace />} />
+      <Route path="/auth/callback" element={<AuthCallback />} />
+      <Route path="/auth/error" element={<AuthError />} />
+      
+      {/* Protected routes - require authentication */}
+      {user ? (
+        <Route path="/*" element={
+          <DashboardLayout>
+            <Routes>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/projects" element={<Projects />} />
+              <Route path="/upload" element={<Upload />} />
+              <Route path="/reports" element={<Reports />} />
+              <Route path="/analytics" element={<div>Analytics Page (Coming Soon)</div>} />
+              <Route path="/comments" element={<div>Comments Page (Coming Soon)</div>} />
+              <Route path="/tasks" element={<div>Tasks Page (Coming Soon)</div>} />
+              <Route path="/admin/*" element={<div>Admin Section (Coming Soon)</div>} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </DashboardLayout>
+        } />
+      ) : (
+        <Route path="*" element={<Navigate to="/auth" replace />} />
+      )}
+    </Routes>
   )
 }
 

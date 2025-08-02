@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Menu, Search, Bell, User, Settings, Upload, X, ChevronRight } from 'lucide-react'
+import { Menu, Search, Bell, User, Upload, X, ChevronRight } from 'lucide-react'
 import Sidebar from './Sidebar'
 import EvidencePanel from './EvidencePanel'
 import { useAuth } from '../../contexts/AuthContext'
